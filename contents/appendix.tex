@@ -1,0 +1,1033 @@
+% !Mode:: "TeX:UTF-8"
+
+\chapter{池化}
+
+池化 (Pooling) ，也称为子采样 (Subsampling) 或下采样 (Downsampling) ，是深度学习中常用的一种操作，尤其是在卷积神经网络 (CNN) 和处理序列数据的模型中。其主要目的包括：
+
+\begin{enumerate}
+    \item \textbf{降低维度 (Dimensionality Reduction) }：池化层通过聚合输入特征图 (Feature Map) 或序列中的信息，显著减少后续层的参数数量和计算量。这有助于控制模型的复杂度并防止过拟合。
+    \item \textbf{特征不变性 (Feature Invariance) }：池化操作可以使模型对输入中的微小变化 (如平移、旋转) 更加鲁棒。例如，最大池化 (Max Pooling) 关注区域内最显著的特征，即使特征的位置发生轻微移动，池化后的输出也可能保持不变。
+    \item \textbf{增大感受野 (Receptive Field) }：在CNN中，池化层可以有效地增大后续卷积层的感受野，使得网络能够捕捉到更大范围的上下文信息。
+\end{enumerate}
+
+常见的池化操作类型有：
+\begin{itemize}
+    \item \textbf{最大池化 (Max Pooling) }：在一个局部区域 (池化窗口) 内，选择最大的特征值作为输出。它倾向于保留最显著的特征。
+    \item \textbf{平均池化 (Average Pooling) }：计算一个局部区域内所有特征值的平均值作为输出。它保留了区域内的整体信息。
+    \item \textbf{全局池化 (Global Pooling) }：将整个特征图或序列缩减为一个单一的值 (或一个固定大小的向量) 。例如，全局平均池化 (Global Average Pooling, GAP) 计算整个特征图的平均值。全局池化常用于将卷积层的输出连接到全连接层，或者在处理序列数据时聚合整个序列的信息。
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    % Placeholder for an image illustrating pooling
+    \fbox{\parbox{0.8\textwidth}{\centering \vspace{2cm} (此处可插入说明池化操作的示意图，例如一个 2x2 的最大池化或平均池化过程) \vspace{2cm}}}
+    \caption{池化操作示意图 (例如：最大池化)}
+    \label{fig:pooling_example}
+\end{figure}
+
+\section{模型中的池化应用：带掩码的平均池化}
+
+在这个特定的模型中，输入是可变长度的 PMT 命中序列。经过特征嵌入和 GPT 编码器处理后，我们得到一个形状为 $(T \times d_{in})$ 的输出序列 $X_{enc}$，其中 $T$ 是序列长度 (可能包含填充) ，$d_{in}$ 是模型的内部嵌入维度。
+
+由于输入序列的长度 $T$ 是可变的，并且为了进行最终的顶点位置回归 (需要一个固定大小的输入) ，我们需要将这个可变长度的序列 $X_{enc}$ 聚合 (或“池化”) 成一个单一的、固定大小的向量。
+
+该模型采用的是\textbf{带掩码的平均池化 (Masked Average Pooling) }。选择这种方法的原因如下：
+\begin{itemize}
+    \item \textbf{处理变长序列}：需要一种能将不同长度的序列映射到相同维度输出的方法。
+    \item \textbf{全局信息聚合}：目标是基于整个事件 (所有有效命中) 的信息来预测顶点，因此需要聚合整个序列的信息，而不是局部信息。全局池化是实现这一目标的自然选择。
+    \item \textbf{忽略填充}：由于较短的序列会被填充 (padding) 到最大长度 `max\_seq\_len`，在聚合信息时不应考虑这些填充部分。掩码 (Mask) 机制用于识别并忽略这些填充位置。
+    \item \textbf{平均池化的选择}：平均池化考虑了所有有效命中的贡献，将它们的特征表示进行平均，得到一个能代表整个事件“平均”特征的向量。相比之下，最大池化可能只关注最“突出”的少数命中。对于顶点重建任务，综合所有命中的信息通常更合理。
+\end{itemize}
+
+\subsection{具体实现}
+
+令 $X_{enc} = [x_1, x_2, \dots, x_T]^T \in \mathbb{R}^{T \times d_{in}}$ 为 GPT 编码器的输出序列，其中 $x_i \in \mathbb{R}^{d_{in}}$。
+令 $M = [m_1, m_2, \dots, m_T]$ 为对应的二进制掩码，其中 $m_i=1$ 表示第 $i$ 个位置是有效命中，$m_i=0$ 表示该位置是填充。
+
+带掩码的平均池化计算如下：
+
+\[ \bar{x}_{pool} = \frac{\sum_{i=1}^{T} x_i \cdot m_i}{\sum_{i=1}^{T} m_i + \epsilon} \]
+
+这个公式计算了所有有效命中 ($m_i=1$) 对应的输出向量 $x_i$ 的和，然后除以有效命中的数量 ($\sum_{i=1}^{T} m_i$) ，得到平均向量 $\bar{x}_{pool} \in \mathbb{R}^{d_{in}}$。$\epsilon$ 是一个小的常数以防止除零。
+
+这个池化后的向量 $\bar{x}_{pool}$ 捕获了整个事件序列的全局信息，并具有固定的维度 $d_{in}$。它随后被送入层归一化 (Layer Normalization) 和最终的线性输出层，以预测事件的 (x, y, z) 坐标。
+
+\chapter{层归一化}
+
+层归一化 (Layer Normalization, LN) 是一种在深度学习中广泛使用的归一化技术，特别是在处理序列数据（如 RNN 和 Transformer）时表现出色。与批量归一化 (Batch Normalization, BN) 不同，BN 是在批次维度上对特征进行归一化，而 LN 是在单个样本的特征维度上进行归一化。
+
+\subsection{层归一化原理}
+
+对于神经网络某一层的一个样本的输出（或隐藏状态）向量 $h \in \mathbb{R}^{d}$（其中 $d$ 是该层的神经元数量或特征维度），层归一化首先计算该向量内所有元素的均值 $\mu$ 和标准差 $\sigma$：
+
+\[ \mu = \frac{1}{d} \sum_{i=1}^{d} h_i \]
+\[ \sigma = \sqrt{\frac{1}{d} \sum_{i=1}^{d} (h_i - \mu)^2 + \epsilon} \]
+
+其中 $h_i$ 是向量 $h$ 的第 $i$ 个元素，$\epsilon$ 是一个很小的常数以防止除零。
+
+然后，使用计算出的均值和标准差对该样本的输出向量 $h$ 进行归一化：
+
+\[ \hat{h}_i = \frac{h_i - \mu}{\sigma} \]
+
+最后，为了保持模型的表达能力，LN 引入了两个可学习的参数：增益 (gain) $\gamma \in \mathbb{R}^{d}$ 和偏置 (bias) $\beta \in \mathbb{R}^{d}$（维度与 $h$ 相同）。最终的输出 $LN(h)$ 计算如下：
+
+\[ LN(h)_i = \gamma_i \hat{h}_i + \beta_i \]
+
+$\gamma$ 和 $\beta$ 在训练过程中与其他模型参数一起学习，允许网络自适应地缩放和平移归一化后的特征。
+
+\subsection{层归一化的优势}
+
+\begin{enumerate}
+    \item \textbf{独立于批次大小 (Batch Size Independent)}：LN 的计算完全在单个样本内部进行，不依赖于批次中的其他样本，因此它在批次大小很小（甚至为 1）或变化时也能稳定工作，这对于 RNN 或处理变长序列的模型尤其有利。
+    \item \textbf{适用于序列数据}：对于变长的序列数据，不同时间步的统计特性可能不同，BN 在这种情况下可能效果不佳，而 LN 对每个时间步独立进行归一化，更具鲁棒性。
+    \item \textbf{稳定训练动态}：与 BN 类似，LN 有助于平滑损失曲面，稳定梯度，加速模型收敛。
+\end{enumerate}
+
+\subsection{在模型中的应用}
+
+根据前文池化章节的描述，在模型中，层归一化的应用紧随在\textbf{带掩码的平均池化 (Masked Average Pooling)} 步骤之后：
+
+\begin{enumerate}
+    \item \textbf{输入}：带掩码的平均池化层输出了一个固定维度的向量 $\bar{x}_{pool} \in \mathbb{R}^{d_{in}}$。这个向量聚合了来自 GPT 编码器输出的整个事件序列的全局信息。
+    \item \textbf{处理}：这个池化后的向量 $\bar{x}_{pool}$ 被直接送入一个层归一化层。LN 层会计算 $\bar{x}_{pool}$ 向量内部 $d_{in}$ 个特征元素的均值和标准差，并对其进行归一化和仿射变换（使用可学习的 $\gamma$ 和 $\beta$ 参数）。
+    \item \textbf{目的}：在将聚合后的特征向量 $\bar{x}_{pool}$ 输入到最终的线性输出层之前应用 LN，主要目的是稳定这一层输入的分布，减少内部协变量偏移 (Internal Covariate Shift)，有助于后续线性层更好地学习从全局特征到最终 (x, y, z) 坐标的映射，可能加速训练收敛并提高模型的泛化能力。
+    \item \textbf{输出}：经过层归一化处理后的向量，再被送入最终的线性层进行坐标预测。
+\end{enumerate}
+
+\chapter{源代码}
+
+本章列出了用于模型训练、验证、测试以及与传统方法对比分析的核心 Python 脚本。
+
+\begin{lstlisting}[language=Python, caption={模型训练、验证与测试对比脚本 (train\_val\_test\_compare\_v1.py)}, label={lst:train_script}]
+    #!/usr/bin/env python
+    import os
+    import argparse
+    import numpy as np
+    from glob import glob
+    import uproot
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    from torch.utils.data import Dataset, DataLoader
+    import logging   # 用于写 training.log
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    
+     ########################
+    # 1. 参数解析
+     ########################
+    def get_args():
+        parser= argparse.ArgumentParser(description="Stream-based training + val + test + SF vs DL compare.")
+        parser.add_argument("--root_dir", type=str, required=True,
+                            help="包含所有 .root 文件的目录")
+        parser.add_argument("--tree_name", type=str, default="event_ntuple")
+        parser.add_argument("--pmt_position_file", type=str, required=True,
+                            help="PMT坐标文件，与训练脚本一致")
+    
+        # 数据cut + mm->cm
+        parser.add_argument("--min_hits", type=int, default=1)
+        parser.add_argument("--max_hits", type=int, default=99999)
+        parser.add_argument("--min_energy", type=float, default=0.0)
+        parser.add_argument("--max_energy", type=float, default=99999.0)
+        parser.add_argument("--pos_cut", nargs=6, type=float, 
+                            default=[-9999,9999, -9999,9999, -9999,9999],
+                            help="[x_min x_max y_min y_max z_min z_max], mm")
+        parser.add_argument("--time_min", type=float, default=0.0)
+        parser.add_argument("--time_max", type=float, default=9999.0)
+        parser.add_argument("--max_seq_len", type=int, default=1000)
+    
+        parser.add_argument("--hit_features", nargs="+", default=["time","x","y","z"])
+        parser.add_argument("--embed_dims", nargs="+", type=int, default=[8,8,8,8])
+        parser.add_argument("--sort_mode", type=str, choices=["time","pmt_id"], 
+                            default="time")
+    
+        # 流式: chunk_size => 一次处理多少 root 文件, 避免OOM
+        parser.add_argument("--chunk_size", type=int, default=5,
+                            help="一次读取 chunk_size 个 root 文件 => parse events => random split train/val/test => train => accumulate test?")
+    
+        # 事件级随机拆分比例 (train/val/test)
+        parser.add_argument("--train_ratio", type=float, default=0.7)
+        parser.add_argument("--val_ratio", type=float, default=0.2)
+    
+        parser.add_argument("--train_epochs", type=int, default=10)
+        parser.add_argument("--batch_size", type=int, default=32)
+        parser.add_argument("--lr", type=float, default=1e-3)
+        parser.add_argument("--eta_min", type=float, default=1e-5)
+        parser.add_argument("--early_stop_patience", type=int, default=5)
+    
+        parser.add_argument("--nhead", type=int, default=4)
+        parser.add_argument("--num_layers", type=int, default=4)
+        parser.add_argument("--dim_ff", type=int, default=256)
+    
+        parser.add_argument("--num_gpus", type=int, default=1)
+        parser.add_argument("--save_model", type=str, default="best_model.pth")
+        parser.add_argument("--save_loss_fig", type=str, default="loss_curve.png")
+        parser.add_argument("--save_pred_fig_dir", type=str, default="pred_figs")
+    
+        # WeightedMSELoss
+        parser.add_argument("--outlier_threshold", type=float, default=10.0)
+        parser.add_argument("--scale_outlier", type=float, default=2.0)
+    
+        # 指定存放训练日志
+        parser.add_argument("--log_file", type=str, default="training.log",
+                            help="日志文件名，用于记录训练信息")
+    
+        # 测试集最终对比时: 将新生成的 _DL.root 放在 out_root_dir
+        parser.add_argument("--out_root_dir", type=str, default="dl_root_files",
+                            help="用户指定的新 ROOT 文件输出目录")
+    
+        return parser.parse_args()
+    
+     ########################
+    # 2. 设置logging
+     ########################
+    def setup_logging(log_file):
+        logging.basicConfig(
+            filename= log_file,
+            filemode= "w",
+            level= logging.INFO,
+            format= "%(asctime)s - %(levelname)s - %(message)s"
+        )
+        # 同时在屏幕输出
+        console= logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        formatter= logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        console.setFormatter(formatter)
+        logging.getLogger("").addHandler(console)
+    
+     ########################
+    # 3. load_pmt_positions
+     ########################
+    def load_pmt_positions(pmt_file):
+        """
+        解析 pmt_position_file, 返回 pmt_dict={pid:(px,py,pz)}, pmt_id_max
+        """
+        pmt_dict= {}
+        pmt_id_max= 0
+        with open(pmt_file,"r") as pf:
+            for line in pf:
+                arr= line.strip().split()
+                if len(arr)<4:
+                    continue
+                pid= int(arr[0])
+                px,py,pz= map(float, arr[1:4])
+                pmt_dict[pid]= (px,py,pz)
+                if pid> pmt_id_max:
+                    pmt_id_max= pid
+        return pmt_dict, pmt_id_max
+    
+     ########################
+    # 4. chunkify root file list
+     ########################
+    def chunkify_files(file_list, chunk_size):
+        for i in range(0, len(file_list), chunk_size):
+            yield file_list[i : i+chunk_size]
+    
+     ########################
+    # 5. 读取 chunk files => parse events => shuffle => split => train/val/test
+     ########################
+    def load_chunk_events(file_chunk, tree_name, pmt_dict, args):
+        """
+        一次加载这 chunk_size 个 root 文件 => parse => cut => 事件列表.
+        返回 events = [ { 'time':..., 'pid':..., 'xx':..., 'yy':..., 'zz':..., 'target_cm':..., 'sf_x_mm':..., 'energy':..., ... }, ... ]
+        """
+        events= []
+        for rf in file_chunk:
+            data= uproot.concatenate(f"{rf}:{tree_name}", library="np")
+            N= len(data["gtid"])
+            for i in range(N):
+                nh= data["nhits"][i]
+                if not(args.min_hits<= nh <= args.max_hits):
+                    continue
+                e_v= data["deposit_energy"][i]
+                if not(args.min_energy<= e_v <= args.max_energy):
+                    continue
+                x_mm= data["position_x"][i]
+                y_mm= data["position_y"][i]
+                z_mm= data["position_z"][i]
+                if not(args.pos_cut[0]<= x_mm<=args.pos_cut[1] and
+                       args.pos_cut[2]<= y_mm<=args.pos_cut[3] and
+                       args.pos_cut[4]<= z_mm<=args.pos_cut[5]):
+                    continue
+    
+                # mm->cm
+                x_cm= x_mm/10.0
+                y_cm= y_mm/10.0
+                z_cm= z_mm/10.0
+    
+                ht= data["hit_time_v"][i]
+                pid= data["hit_PMT_id_v"][i]
+                xx_arr= np.array([pmt_dict.get(pp,(0,0,0))[0] for pp in pid], dtype=np.float32)
+                yy_arr= np.array([pmt_dict.get(pp,(0,0,0))[1] for pp in pid], dtype=np.float32)
+                zz_arr= np.array([pmt_dict.get(pp,(0,0,0))[2] for pp in pid], dtype=np.float32)
+    
+                # time cut
+                mask_= (ht>=args.time_min)&(ht<=args.time_max)
+                ht= ht[mask_]
+                pid= pid[mask_]
+                xx_arr= xx_arr[mask_]
+                yy_arr= yy_arr[mask_]
+                zz_arr= zz_arr[mask_]
+                if len(ht)<1:
+                    continue
+    
+                if args.sort_mode=="time":
+                    sidx= np.argsort(ht)
+                else:
+                    sidx= np.argsort(pid)
+                ht= ht[sidx]
+                pid= pid[sidx]
+                xx_arr= xx_arr[sidx]
+                yy_arr= yy_arr[sidx]
+                zz_arr= zz_arr[sidx]
+                if len(ht)> args.max_seq_len:
+                    ht= ht[:args.max_seq_len]
+                    pid= pid[:args.max_seq_len]
+                    xx_arr= xx_arr[:args.max_seq_len]
+                    yy_arr= yy_arr[:args.max_seq_len]
+                    zz_arr= zz_arr[:args.max_seq_len]
+    
+                # SF
+                if "sf_position_x" in data:
+                    sfx= data["sf_position_x"][i]
+                    sfy= data["sf_position_y"][i]
+                    sfz= data["sf_position_z"][i]
+                else:
+                    sfx= sfy= sfz= 9999
+    
+                events.append({
+                    "time": ht,
+                    "pid": pid,
+                    "xx": xx_arr,
+                    "yy": yy_arr,
+                    "zz": zz_arr,
+                    "target_cm": np.array([x_cm,y_cm,z_cm], dtype=np.float32),
+                    "sf_x_mm": sfx,
+                    "sf_y_mm": sfy,
+                    "sf_z_mm": sfz,
+                    "energy": e_v,
+                    "nhits": nh
+                })
+        return events
+    
+     ########################
+    # 6. Dataset + DataLoader
+     ########################
+    class PositionDataset(Dataset):
+        def __init__(self, events):
+            self.events= events
+        def __len__(self):
+            return len(self.events)
+        def __getitem__(self, idx):
+            ev= self.events[idx]
+            # return hits + target
+            return (ev["time"], ev["pid"], ev["xx"], ev["yy"], ev["zz"], ev["target_cm"])
+    
+    def collate_fn(batch):
+        all_t, all_pid, all_x, all_y, all_z, all_tgt, all_mk = [], [], [], [], [], [], []
+        max_len = 0
+        for (ht, pid, xx, yy, zz, tgt) in batch:
+            l = len(ht)
+            mk_ = np.zeros((l,), dtype=np.float32)
+            mk_[:l] = 1
+            if l > max_len:
+                max_len = l
+            all_t.append(ht)
+            all_pid.append(pid)
+            all_x.append(xx)
+            all_y.append(yy)
+            all_z.append(zz)
+            all_tgt.append(tgt)
+            all_mk.append(mk_)
+    
+        bt, bp, bx, by, bz, bmk = [], [], [], [], [], []
+        for i in range(len(all_t)):
+            sl = len(all_t[i])
+            t_ = np.zeros((max_len,), dtype=np.float32)
+            p_ = np.zeros((max_len,), dtype=np.int64)
+            x_ = np.zeros((max_len,), dtype=np.float32)
+            y_ = np.zeros((max_len,), dtype=np.float32)
+            z_ = np.zeros((max_len,), dtype=np.float32)
+            m_ = np.zeros((max_len,), dtype=np.float32)
+    
+            t_[:sl] = all_t[i]
+            p_[:sl] = all_pid[i]
+            x_[:sl] = all_x[i]
+            y_[:sl] = all_y[i]
+            z_[:sl] = all_z[i]
+            m_[:sl] = all_mk[i]
+    
+            bt.append(t_)
+            bp.append(p_)
+            bx.append(x_)
+            by.append(y_)
+            bz.append(z_)
+            bmk.append(m_)
+    
+        # 一次性将列表转换为 NumPy 数组后，再创建 tensor
+        bt = torch.from_numpy(np.array(bt, dtype=np.float32))
+        bp = torch.from_numpy(np.array(bp, dtype=np.int64))
+        bx = torch.from_numpy(np.array(bx, dtype=np.float32))
+        by = torch.from_numpy(np.array(by, dtype=np.float32))
+        bz = torch.from_numpy(np.array(bz, dtype=np.float32))
+        bmk = torch.from_numpy(np.array(bmk, dtype=np.float32))
+        tg = torch.from_numpy(np.array(all_tgt, dtype=np.float32))
+        return (bt, bp, bx, by, bz, bmk, tg)
+    
+     ########################
+    # 7. 网络定义
+     ########################
+    def init_weights_gpt(m):
+        if isinstance(m,nn.Linear):
+            nn.init.normal_(m.weight, mean=0.0, std=0.02)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+        elif isinstance(m,nn.Embedding):
+            nn.init.normal_(m.weight, mean=0.0, std=0.02)
+    
+    class FeatureEmbedding(nn.Module):
+        def __init__(self, max_pmt_id, feat_list, embed_dims_dict):
+            super().__init__()
+            self.feats= feat_list
+            self.embed_dict= nn.ModuleDict()
+            for f in self.feats:
+                dim= embed_dims_dict[f]
+                if f=="pmt_id":
+                    self.embed_dict[f]= nn.Embedding(max_pmt_id+1, dim)
+                else:
+                    self.embed_dict[f]= nn.Linear(1, dim, bias=True)
+    
+        def forward(self,t,pid,x,y,z):
+            outs=[]
+            if "time" in self.feats:
+                outs.append(self.embed_dict["time"](t.unsqueeze(-1)))
+            if "pmt_id" in self.feats:
+                outs.append(self.embed_dict["pmt_id"](pid))
+            if "x" in self.feats:
+                outs.append(self.embed_dict["x"](x.unsqueeze(-1)))
+            if "y" in self.feats:
+                outs.append(self.embed_dict["y"](y.unsqueeze(-1)))
+            if "z" in self.feats:
+                outs.append(self.embed_dict["z"](z.unsqueeze(-1)))
+            return torch.cat(outs, dim=-1)
+    
+    class SelfAttention(nn.Module):
+        def __init__(self, embed_dim, n_heads, dropout=0.1):
+            super().__init__()
+            self.embed_dim= embed_dim
+            self.n_heads= n_heads
+            self.head_dim= embed_dim//n_heads
+            self.c_attn= nn.Linear(embed_dim, 3*embed_dim)
+            self.c_proj= nn.Linear(embed_dim, embed_dim)
+            self.dropout= nn.Dropout(dropout)
+        def forward(self,x):
+            B,T,C= x.shape
+            qkv= self.c_attn(x)
+            q,k,v= qkv.split(C, dim=2)
+            q= q.reshape(B,T,self.n_heads,self.head_dim).transpose(1,2)
+            k= k.reshape(B,T,self.n_heads,self.head_dim).transpose(1,2)
+            v= v.reshape(B,T,self.n_heads,self.head_dim).transpose(1,2)
+            y= F.scaled_dot_product_attention(q,k,v, None, dropout_p=self.dropout.p)
+            y= y.transpose(1,2).reshape(B,T,C)
+            return self.c_proj(y)
+    
+    class AttentionBlock(nn.Module):
+        def __init__(self, embed_dim, n_heads, dropout=0.1):
+            super().__init__()
+            self.ln1= nn.LayerNorm(embed_dim)
+            self.attn= SelfAttention(embed_dim,n_heads,dropout)
+            self.ln2= nn.LayerNorm(embed_dim)
+            self.mlp= nn.Sequential(
+                nn.Linear(embed_dim,4*embed_dim),
+                nn.GELU(),
+                nn.Linear(4*embed_dim, embed_dim),
+                nn.Dropout(dropout)
+            )
+        def forward(self,x):
+            x= x + self.attn(self.ln1(x))
+            x= x + self.mlp(self.ln2(x))
+            return x
+    
+    class GPTEncoder(nn.Module):
+        def __init__(self, embed_dim, n_heads, num_layers, dropout=0.1):
+            super().__init__()
+            self.blocks= nn.ModuleList([
+                AttentionBlock(embed_dim,n_heads,dropout) for _ in range(num_layers)
+            ])
+        def forward(self,x):
+            for blk in self.blocks:
+                x= blk(x)
+            return x
+    
+    class GPTRegressor(nn.Module):
+        def __init__(self,in_dim,n_heads,num_layers,out_dim=3,max_len=1000,dropout=0.1):
+            super().__init__()
+            self.inp_linear= nn.Linear(in_dim,in_dim)
+            self.pos_emb= nn.Embedding(max_len,in_dim)
+            self.encoder= GPTEncoder(in_dim,n_heads,num_layers,dropout)
+            self.ln_f= nn.LayerNorm(in_dim)
+            self.fc_out= nn.Linear(in_dim,out_dim)
+            self.apply(init_weights_gpt)
+    
+        def forward(self, feats, mask):
+            B,T,C= feats.shape
+            x= self.inp_linear(feats)
+            idx= torch.arange(T, device=x.device).unsqueeze(0)
+            x= x + self.pos_emb(idx)
+            x= self.encoder(x)
+            m_= mask.unsqueeze(-1)
+            x_pooled= (x*m_).sum(dim=1)/(m_.sum(dim=1)+1e-12)
+            x_pooled= self.ln_f(x_pooled)
+            return self.fc_out(x_pooled)
+    
+     ########################
+    # 8. WeightedMSELoss
+     ########################
+    class WeightedMSELoss(nn.Module):
+        def __init__(self, threshold=10.0, scale_outlier=2.0):
+            super().__init__()
+            self.threshold= threshold
+            self.scale_outlier= scale_outlier
+        def forward(self, pred, tgt):
+            # pred,tgt: (B,3), unit= cm
+            err= pred - tgt
+            dr= torch.sqrt((err**2).sum(dim=1)+1e-12)
+            mask_big= (dr> self.threshold)
+            dr2= dr**2
+            dr2[mask_big]= dr2[mask_big]*self.scale_outlier
+            return dr2.mean()
+    
+     ########################
+    # 9. 训练辅助函数
+     ########################
+    def train_on_chunk(model, emb_module, event_subset, batch_size, criterion, optimizer, device):
+        """
+        对给定一批 'event_subset' 事件做一次 mini-batch 训练(只返回平均loss).
+        """
+        ds_chunk= PositionDataset(event_subset)
+        dl_chunk= DataLoader(ds_chunk, batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+        model.train()
+        emb_module.train()
+        total_loss=0.0
+        total_samples=0
+    
+        for batch in dl_chunk:
+            bt,bp,bx,by,bz,mk,tg= [x.to(device) for x in batch]
+            optimizer.zero_grad()
+            feats= emb_module(bt,bp,bx,by,bz)
+            out= model(feats,mk)
+            loss= criterion(out,tg)
+            loss.backward()
+            optimizer.step()
+    
+            bs= bt.size(0)
+            total_loss+= loss.item()* bs
+            total_samples+= bs
+    
+        if total_samples>0:
+            return total_loss/ total_samples
+        else:
+            return 9999.9
+    
+     ########################
+    # 10. 主函数
+     ########################
+    def main():
+        args= get_args()
+    
+        # 设置日志
+        if os.path.exists(args.log_file):
+            os.remove(args.log_file)
+        setup_logging(args.log_file)
+        logging.info("START SCRIPT with args=%s", str(args))
+    
+        # 准备输出目录
+        os.makedirs(args.save_pred_fig_dir, exist_ok=True)
+        os.makedirs(args.out_root_dir, exist_ok=True)  # 用户指定存放 _DL.root 的目录
+    
+        # 设备
+        if torch.cuda.is_available() and args.num_gpus>0:
+            device= torch.device("cuda:0")
+            logging.info(f"Using GPU: {device}")
+        else:
+            device= torch.device("cpu")
+            logging.info("Using CPU")
+    
+        # 读 pmt
+        pmt_dict, pmt_id_max= load_pmt_positions(args.pmt_position_file)
+    
+        # 收集root文件
+        file_list= sorted(glob(os.path.join(args.root_dir,"*.root")))
+        if not file_list:
+            logging.error("No .root in %s", args.root_dir)
+            return
+    
+        # 构建模型
+        feat_dict={}
+        for f,d_ in zip(args.hit_features, args.embed_dims):
+            feat_dict[f]= d_
+        emb_in_dim= sum(args.embed_dims)
+        emb_module= FeatureEmbedding(pmt_id_max, args.hit_features, feat_dict).to(device)
+        model= GPTRegressor(
+            in_dim= emb_in_dim,
+            n_heads= args.nhead,
+            num_layers= args.num_layers,
+            out_dim= 3,
+            max_len= args.max_seq_len,
+            dropout= 0.1
+        ).to(device)
+    
+        if device.type=="cuda" and args.num_gpus>1:
+            model= nn.DataParallel(model)
+            emb_module= nn.DataParallel(emb_module)
+    
+        criterion= WeightedMSELoss(args.outlier_threshold, args.scale_outlier)
+        optimizer= torch.optim.Adam(list(model.parameters())+ list(emb_module.parameters()), lr=args.lr)
+        scheduler= torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.train_epochs, eta_min=args.eta_min)
+    
+        # early stop
+        best_val_loss= float("inf")
+        wait_cnt= 0
+        train_losses= []
+        val_losses= []
+    
+        # 准备用于 test compare
+        test_events_all= []  # 累加各chunk的 test events
+    
+        # ============= 训练 EPOCH loop =============
+        for ep in range(args.train_epochs):
+            logging.info(f"=== EPOCH {ep+1}/{args.train_epochs} ===")
+    
+            # chunkify files => for each chunk => load => split => train
+            chunk_files_list= list(chunkify_files(file_list, args.chunk_size))
+            chunk_sum_loss= 0.0
+            chunk_sum_count= 0
+            sum_val_loss= 0.0
+            sum_val_count= 0
+    
+            for ic, chunk_fs in enumerate(chunk_files_list, start=1):
+                events_chunk= load_chunk_events(chunk_fs, args.tree_name, pmt_dict, args)
+                if not events_chunk:
+                    continue
+                # shuffle chunk events
+                np.random.shuffle(events_chunk)
+                Nch= len(events_chunk)
+                nch_train= int(Nch* args.train_ratio)
+                nch_val= int(Nch* args.val_ratio)
+                nch_test= Nch- nch_train- nch_val
+    
+                train_part= events_chunk[:nch_train]
+                val_part= events_chunk[nch_train: nch_train+nch_val]
+                test_part= events_chunk[nch_train+nch_val:]  # for final compare
+    
+                # 累加 test
+                test_events_all.extend(test_part)
+    
+                # 训练 (train_part)
+                if train_part:
+                    train_loss= train_on_chunk(model, emb_module, train_part, args.batch_size, criterion, optimizer, device)
+                    chunk_sum_loss+= train_loss* len(train_part)
+                    chunk_sum_count+= len(train_part)
+                    logging.info(f"[Epoch {ep+1}] chunk {ic}/{len(chunk_files_list)} train_loss={train_loss:.4f}, events={len(train_part)}")
+    
+                # 验证 (val_part)
+                if val_part:
+                    ds_val= PositionDataset(val_part)
+                    dl_val= DataLoader(ds_val, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
+                    model.eval()
+                    emb_module.eval()
+                    val_loss= 0.0
+                    val_count=0
+                    with torch.no_grad():
+                        for batch in dl_val:
+                            bt,bp,bx,by,bz,mk,tg= [x.to(device) for x in batch]
+                            feats= emb_module(bt,bp,bx,by,bz)
+                            out= model(feats,mk)
+                            loss= criterion(out,tg)
+                            bs= bt.size(0)
+                            val_loss+= loss.item()* bs
+                            val_count+= bs
+                    if val_count>0:
+                        val_loss/= val_count
+                        sum_val_loss+= val_loss* val_count
+                        sum_val_count+= val_count
+                    logging.info(f"[Epoch {ep+1}] chunk {ic}/{len(chunk_files_list)} val_loss={val_loss:.4f}, events={val_count}")
+    
+                del events_chunk, train_part, val_part, test_part
+                torch.cuda.empty_cache()
+    
+            # end chunk loop for epoch
+            if chunk_sum_count>0:
+                epoch_train_loss= chunk_sum_loss / chunk_sum_count
+            else:
+                epoch_train_loss=9999.9
+            train_losses.append(epoch_train_loss)
+    
+            if sum_val_count>0:
+                epoch_val_loss= sum_val_loss / sum_val_count
+            else:
+                epoch_val_loss=9999.9
+            val_losses.append(epoch_val_loss)
+    
+            scheduler.step()
+    
+            logging.info(f"=== EPOCH {ep+1} DONE: TrainLoss={epoch_train_loss:.4f}, ValLoss={epoch_val_loss:.4f}")
+    
+            # early stop
+            if epoch_val_loss< best_val_loss:
+                best_val_loss= epoch_val_loss
+                torch.save(model.state_dict(), args.save_model)
+                torch.save(emb_module.state_dict(), args.save_model+"_emb")
+                logging.info("** [Info] Best model updated!")
+                wait_cnt=0
+            else:
+                wait_cnt+=1
+                if wait_cnt>= args.early_stop_patience:
+                    logging.info("** [Info] Early stopping triggered!")
+                    break
+    
+        # 画loss曲线
+        plt.figure()
+        plt.plot(range(1,len(train_losses)+1), train_losses, label="Train")
+        plt.plot(range(1,len(val_losses)+1), val_losses, label="Val")
+        plt.xlabel("Epoch")
+        plt.ylabel("WeightedMSELoss")
+        plt.legend()
+        plt.tight_layout()
+        loss_fig= os.path.join(args.save_pred_fig_dir, args.save_loss_fig)
+        plt.savefig(loss_fig)
+        plt.close()
+        logging.info(f"Training done. Loss curve => {loss_fig}")
+    
+        # 加载 best
+        if isinstance(model, nn.DataParallel):
+            model.module.load_state_dict(torch.load(args.save_model, map_location=device))
+            emb_module.module.load_state_dict(torch.load(args.save_model+"_emb", map_location=device))
+        else:
+            model.load_state_dict(torch.load(args.save_model, map_location=device))
+            emb_module.load_state_dict(torch.load(args.save_model+"_emb", map_location=device))
+    
+        model.eval()
+        emb_module.eval()
+    
+        # ========== 最终 test 对比 SF vs DL => 画对比图 & 输出 root ==========
+        logging.info(f"Test events all = {len(test_events_all)}")
+        if not test_events_all:
+            logging.info("No test events collected, skip final compare.")
+            return
+    
+        dl_x,dl_y,dl_z= [],[],[]
+        sf_x,sf_y,sf_z= [],[],[]
+        rx,ry,rz= [],[],[]
+        e_list= []
+        nh_list= []
+    
+        with torch.no_grad():
+            for ev in test_events_all:
+                ht= ev["time"]
+                pid= ev["pid"]
+                xx= ev["xx"]
+                yy= ev["yy"]
+                zz= ev["zz"]
+                if len(ht)<1:
+                    dl_x.append(9999); dl_y.append(9999); dl_z.append(9999)
+                    sf_x.append(ev["sf_x_mm"]); sf_y.append(ev["sf_y_mm"]); sf_z.append(ev["sf_z_mm"])
+                    r_ = ev["target_cm"]*10.0
+                    rx.append(r_[0]); ry.append(r_[1]); rz.append(r_[2])
+                    e_list.append(ev["energy"])
+                    nh_list.append(ev["nhits"])
+                    continue
+    
+                mk= np.ones((len(ht)), dtype=np.float32)
+                if len(ht)> args.max_seq_len:
+                    ht= ht[:args.max_seq_len]
+                    pid= pid[:args.max_seq_len]
+                    xx= xx[:args.max_seq_len]
+                    yy= yy[:args.max_seq_len]
+                    zz= zz[:args.max_seq_len]
+                    mk= mk[:args.max_seq_len]
+    
+                b_time= torch.tensor(ht, dtype=torch.float32).unsqueeze(0).to(device)
+                b_pid= torch.tensor(pid, dtype=torch.long).unsqueeze(0).to(device)
+                b_x= torch.tensor(xx, dtype=torch.float32).unsqueeze(0).to(device)
+                b_y= torch.tensor(yy, dtype=torch.float32).unsqueeze(0).to(device)
+                b_z= torch.tensor(zz, dtype=torch.float32).unsqueeze(0).to(device)
+                b_m= torch.tensor(mk, dtype=torch.float32).unsqueeze(0).to(device)
+                feats= emb_module(b_time,b_pid,b_x,b_y,b_z)
+                out_cm= model(feats,b_m)  # (1,3)
+                out_mm= out_cm[0].cpu().numpy()*10.0  # => mm
+                dl_x.append(out_mm[0])
+                dl_y.append(out_mm[1])
+                dl_z.append(out_mm[2])
+    
+                sf_x.append(ev["sf_x_mm"])
+                sf_y.append(ev["sf_y_mm"])
+                sf_z.append(ev["sf_z_mm"])
+    
+                real_mm= ev["target_cm"]*10.0
+                rx.append(real_mm[0]); ry.append(real_mm[1]); rz.append(real_mm[2])
+    
+                e_list.append(ev["energy"])
+                nh_list.append(ev["nhits"])
+    
+        dl_x= np.array(dl_x); dl_y= np.array(dl_y); dl_z= np.array(dl_z)
+        sf_x= np.array(sf_x); sf_y= np.array(sf_y); sf_z= np.array(sf_z)
+        rx= np.array(rx); ry= np.array(ry); rz= np.array(rz)
+        e_list= np.array(e_list)
+        nh_list= np.array(nh_list)
+    
+        dl_dist= np.sqrt((dl_x - rx)**2 + (dl_y - ry)**2 + (dl_z - rz)**2)
+        sf_dist= np.sqrt((sf_x - rx)**2 + (sf_y - ry)**2 + (sf_z - rz)**2)
+    
+        mean_dl= dl_dist.mean()
+        std_dl= dl_dist.std()
+        mean_sf= sf_dist.mean()
+        std_sf= sf_dist.std()
+        logging.info(f"Test Dist => DL mean={mean_dl:.2f}, std={std_dl:.2f}, SF mean={mean_sf:.2f}, std={std_sf:.2f}")
+    
+        # compare_3Ddistance_SF_DL
+        plt.figure()
+        label_dl= f"DL: mean={mean_dl:.2f}, std={std_dl:.2f}"
+        label_sf= f"SF: mean={mean_sf:.2f}, std={std_sf:.2f}"
+        bins=50
+        plt.hist(dl_dist, bins=bins, alpha=0.5, edgecolor='black', color='red', label=label_dl)
+        plt.hist(sf_dist, bins=bins, alpha=0.5, edgecolor='black', color='blue', label=label_sf)
+        plt.xlabel("3D Distance (mm)")
+        plt.ylabel("Count")
+        plt.title("Test: SF vs DL 3D distance")
+        plt.legend()
+        plt.tight_layout()
+        compare_fig= os.path.join(args.save_pred_fig_dir, "compare_3Ddistance_SF_DL_v1.png")
+        plt.savefig(compare_fig)
+        plt.close()
+        logging.info(f"Saved => {compare_fig}")
+    
+        # resolution vs energy
+        nbins=10
+        e_min,e_max= e_list.min(), e_list.max()
+        be= np.linspace(e_min,e_max,nbins+1)
+        bc= 0.5*(be[:-1]+ be[1:])
+        res_sf= []
+        res_dl= []
+        for i in range(nbins):
+            sel= (e_list>= be[i]) & (e_list< be[i+1])
+            if np.sum(sel)==0:
+                res_sf.append(0)
+                res_dl.append(0)
+            else:
+                res_sf.append(sf_dist[sel].mean())
+                res_dl.append(dl_dist[sel].mean())
+    
+        plt.figure()
+        plt.plot(bc, res_sf, '-o', color='blue', label="SF")
+        plt.plot(bc, res_dl, '-o', color='red', label="DL")
+        plt.xlabel("Energy (MeV)")
+        plt.ylabel("Mean 3D distance (mm)")
+        plt.title("Resolution vs Energy (Test set)")
+        plt.legend()
+        plt.tight_layout()
+        fig_e= os.path.join(args.save_pred_fig_dir, "resolution_vs_energy_v1.png")
+        plt.savefig(fig_e)
+        plt.close()
+        logging.info(f"Saved => {fig_e}")
+    
+        # resolution vs nhits
+        nbins2=10
+        nh_min, nh_max= nh_list.min(), nh_list.max()
+        bh= np.linspace(nh_min, nh_max, nbins2+1)
+        bc2= 0.5*(bh[:-1]+ bh[1:])
+        sf2, dl2= [], []
+        for i in range(nbins2):
+            sel= (nh_list>= bh[i]) & (nh_list< bh[i+1])
+            if np.sum(sel)==0:
+                sf2.append(0)
+                dl2.append(0)
+            else:
+                sf2.append(sf_dist[sel].mean())
+                dl2.append(dl_dist[sel].mean())
+    
+        plt.figure()
+        plt.plot(bc2, sf2, '-o', color='blue', label="SF")
+        plt.plot(bc2, dl2, '-o', color='red', label="DL")
+        plt.xlabel("Nhit")
+        plt.ylabel("Mean 3D distance (mm)")
+        plt.title("Resolution vs Nhit (Test set)")
+        plt.legend()
+        plt.tight_layout()
+        fig_n= os.path.join(args.save_pred_fig_dir, "resolution_vs_nhits_v1.png")
+        plt.savefig(fig_n)
+        plt.close()
+        logging.info(f"Saved => {fig_n}")
+    
+        # 写 test_set_DL.root
+        logging.info("Writing test set root with DL coords => out_root_dir")
+    
+        dl_x= dl_x.astype(np.float32)
+        dl_y= dl_y.astype(np.float32)
+        dl_z= dl_z.astype(np.float32)
+        rx= rx.astype(np.float32)
+        ry= ry.astype(np.float32)
+        rz= rz.astype(np.float32)
+        outdict= {
+            "dl_position_x": dl_x,
+            "dl_position_y": dl_y,
+            "dl_position_z": dl_z,
+            "real_position_x": rx,
+            "real_position_y": ry,
+            "real_position_z": rz,
+            "sf_position_x": sf_x.astype(np.float32),
+            "sf_position_y": sf_y.astype(np.float32),
+            "sf_position_z": sf_z.astype(np.float32),
+            "energy": e_list.astype(np.float32),
+            "nhits": nh_list.astype(np.float32)
+        }
+        outroot= os.path.join(args.out_root_dir, "test_set_DL_v1.root")
+        with uproot.recreate(outroot) as fout:
+            fout[args.tree_name]= outdict
+        logging.info(f"Wrote => {outroot}")
+    
+        logging.info("All done. Check logs in %s", args.log_file)
+    
+    if __name__=="__main__":
+        main()
+\end{lstlisting}
+
+\chapter{山东大学本科毕业论文 (设计) 撰写规范}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{appd.pdf}
+\end{figure}
+为规范我校本科毕业论文 (设计) 管理，提升毕业论文 (设计) 质量，特制定本规范。
+
+本规范约定的书写格式主要适用于用中文撰写的毕业论文 (设计) 。涉外专业用英文或其他外国语撰写毕业论文 (设计) 的书写规范可参照本规范执行。各学院和培养单位可根据不同学科、专业特点制定符合本类别毕业论文 (设计) 的撰写规范。
+\section{毕业论文 (设计) 结构与装订}
+毕业论文 (设计) 一般由以下几部分组成，依次为：封面-成绩评定表-中文摘要 (含关键词) -英文摘要 (含关键词) -目录-正文-参考文献-致谢-附录-译文中文(可选)-译文原文(可选)-封底。
+\section{毕业论文 (设计) 主要内容及要求}
+\subsection{题目}
+题目应简洁、精炼、准确且具概括性，能够准确概括论文 (设计) 的核心内容，一般不超过 20 字，必要时可增加副标题。
+\subsection{摘要}
+中文摘要应具有高度的概括性，语言精炼、明确，扼要叙述论文 (设计) 的主要内容，包括研究目的与意义、研究内容与方法以及研究结论等，同时需要突出论文 (设计) 的新论点、新见解或创造性成果。英文摘要内容应与中文摘要一致，语句通顺，语法正确，准确反映论文 (设计) 内容。
+
+中文摘要一般约 300-800 个汉字，英文摘要约 200-600 个单词。
+\subsection{关键词}
+关键词是供检索用的主题词条，应采用能覆盖毕业论文 (设计) 主要内容的通用技术词条 (参照相应的技术术语标准) ，可从标题或正文中选择 3-5 个最能表达主要内容的词语作为关键词，按词条的外延层次排列 (外延大的排在前面) 。关键词有中、英文对照，分别附于中、英文摘要后。
+\subsection{目录}
+目录一般按三级标题编写 (如 1、1.1、1.1.1……) ，层次清晰，与正文中标题一致。
+\subsection{正文}
+正文包括前言、本论、结论三个部分。
+\begin{compactenum}
+\item 前言
+
+前言应说明毕业论文 (设计) 的目的、意义、研究范围及要求达到的技术参数；国内外的发展概况及存在问题；指导思想和应解决的主要问题。
+\item 本论
+
+本论是毕业论文 (设计) 的主体，必须言之成理，论据可靠，严格遵循本学科国际通行的学术规范。写作上要注意结构合理、层次分明、重点突出，章节标题、公式图表符号必须规范统一。
+
+根据不同学科毕业论文(设计)主体的内容及特点，本论一般包括毕业论文 (设计) 总体方案或选题的论证；各部分的设计实现，如实验数据的获取、数据可行性及有效性的处理与分析、各部分的设计计算等；对研究内容及成果的客观阐述，如理论依据、创新见解、创造性成果及其改进与实际应用价值等。
+\item 结论
+
+结论应集中反映作者的研究成果，要求语言精炼、表述准确且完整，着重阐述自己的创造性成果及其在本研究领域中的意义、作用，同时应包括所得结果与已有结果的比较和本课题尚存在的问题，以及进一步开展研究的见解与建议。
+\end{compactenum}
+\subsection{参考文献}
+参考文献是毕业论文 (设计) 所参考的专著、论文及其他资料 (20 篇及以上) ，所列参考文献应按参考或引证的先后顺序排列，一般应为最新正式发表的文献，其中理、工、医类外文参考文献占比一般不少于 50\%。
+
+注明引用文献的方法通常有三种，即文中注：正文中在引用的地方用括号说明文献出处；脚注：正文中只在引用地方写一个脚注标号，在当页最下方以脚注方式按标号顺序说明文献出处；文末注：在正文引用的地方标号 (一般以出现的先后顺序编号，编号以方括号括起，放右上角) ，然后在全文末 “参考文献”一节，按标号顺序说明文献出处。不同学科可能要求不同，但都应遵循国际上通用习惯以及我国有关国家标准规定，且全文统一，不能混用。
+\subsection{致谢}
+致谢是对在毕业论文 (设计) 工作中给予各类资助、指导、协助以及提供各种有利条件的单位、指导教师或其他人员表示感谢，语言应实事求是，切忌浮夸之词。
+\subsection{附录}
+附录主要包括一些不宜放入正文中的支撑材料，如公式的推演过程、编写的算法、语言程序、各种篇幅较大的图纸等。
+\subsection{译文}
+中期检查前，学生应完成一篇与毕业论文 (设计) 课题紧密相关的外文译文 (不少于 2000 个汉字) 。外文资料由指导教为学生指定，应是一篇完整的选自近期外文书刊的文献，若原文较长，可为文献的核心章节。
+\section{毕业论文 (设计) 的书写和打印规范}
+\subsection{文字和字数}
+除部分特殊专业外，毕业论文 (设计) 一律采用国家语言文字工作委员会正式公布的简化汉字书写，英文授课本科专业国际学生的毕业论文 (设计) 可以采用英文书写，但须附中文摘要。外语类专业毕业论文 (设计) 采用外语书写。
+\subsection{页面设置}
+论文 (设计) 应使用 A4 纸单面或双面纵向打印，上、下页边距 2.5cm，左、右各页边距 3.0cm。
+
+页眉：从正文开始设置，以小五号宋体键入“山东大学本科毕业论文 (设计) ”，居中显示。
+
+页码：目录页码使用罗马数字 (Ⅰ、Ⅱ、Ⅲ) 编排；正文页码从正文开始至附录 (正文-参考文献-致谢-附录) 使用阿拉伯数字编排，小五号 Times New Roman 居中。封面、封底、成绩评定表、中文摘要 (含关键词) 、外文摘要 (含关键词) 、外文资料及译文不编入页码。
+
+段前、段后：章标题段前 0.8 行，段后 0.5 行；节标题0.5 行，段后 0.5 行。
+\subsection{字体与字号}
+\begin{compactenum}
+\item 封面
+
+毕业论文 (设计) 采用山东大学本科毕业论文 (设计) 统一封面。中文题目用黑体小二号加粗，外文题目用三号黑体字加粗，姓名、学号、学院、年级、指导教师为宋体四号。 (英文均采用“Times New Roman”字体) 。
+\item 中文摘要
+
+“摘要”二字为黑体小二号加粗居中，中间空 4 个空格；容为宋体小四号、1.5 倍行距、首行缩进两字符。
+\item 中文关键词
+
+“关键字”三字为黑体小四号加粗；内容为宋体小四号，各关键词用分号 (；) 隔开，无缩进。
+\item 英文摘要
+
+“ABSTRACT”为小二号加粗居中；内容为小四号、1.5 倍行距、首行缩进两字符。
+\item 英文关键词
+
+“Key Words”为小四号加粗，内容为小四号，各关键词之间用逗号 (,) 分开，无缩进。
+\item 目录
+
+“目录”二字为黑体小二号加粗居中，空 4 个空格；内容为宋体小四号。
+\item 正文
+
+中文一级标题为黑体三号加粗，二级标题为黑体四号加粗，三级及以下标题为黑体小四号加粗；英文一级标题为 15pt 加粗，二级标题为 14pt 加粗；三级及以下标题为 13pt 加粗。
+
+正文内容为宋体小四号、1.5 倍行距、首行缩进 2 字符。
+\item 参考文献
+
+“参考文献”四字为黑体小二号加粗居中；内容为宋体五号、单倍行距、首行无缩进。
+\item 致谢
+
+“致谢”二字为黑体小二号加粗居中，中间空 4 个空格；内容为宋体小四号、1.5 倍行距、首行缩进两字符。
+\item 附录
+
+“附录”二字为黑体小二号加粗居中，中间空 4 个空格；内容为宋体小四号、首行缩进两字符、1.5 倍行距。
+\item 译文
+
+译文标题为黑体小二号加粗居中，内容为宋体小四号、1.5倍行距、首行缩进两字符。外文原文标题为小二号加粗居中，内容小四号、1.5 倍行距、首行缩进两字符，或直接使用原文 PDF版本。
+\end{compactenum}
+\subsection{标题层次}
+毕业论文 (设计) 的全部标题层次应有条不紊，整齐清晰，相同的层次应采用统一的表示体例，正文中各级标题下的内容应同各自的标题对应，不应有与标题无关的内容。
+
+理学、工学、医学类学位论文 (设计) 的章节编排建议遵循《CY／T 35-2001 科技文献的章节编号方法》，以阿拉伯数字编号，如 1，1.2，1.2.1 逐级递推。人文社科类学位论文 (设计) 建议采用 第一章 第一节 一、 (一) 形式编排。英文撰写的文 (设计) 建议采用 Chapter1 ，1.2， 1.2.1 逐级递推。
+\subsection{图片、表格及公式}
+\begin{compactenum}
+\item 图片
+
+毕业论文 (设计) 的插图应与文字紧密配合，文图相符，技术内容正确。选图要力求精练，线条要匀称，图面要整洁美观，居中，每幅插图应有图序和图题 (宋体五号加粗居中) ，全文插图可以统一编序，也可以每章单独编序 (如图 1.1 XXX，图 2.1XXX) ，不管采用哪种方式，图序必须连续，不得重复或跳缺。由若干分图组成的插图，分图用 a、b、c……标序，分图的图名以及图中各种代号的意义，以图注形式写在图题下方，先写分图名，另起一行后写代号的意义。
+
+图应在描纸或洁白纸上用墨线绘成，或用计算机绘图，电气图或机械图应符合相应的国家标准。坐标图：横纵坐标必须标注物理量、单位，坐标名置于图的下方居中，宋体五号加黑。
+
+图应放在离正文首次出现处的近处，不应过分超前或拖后。
+\item 表格
+
+每个表格应有自己的表序和表题，位于表格上方正中，表序后不加标点，空一格后写表题，表题末尾不加标点。表题用宋体五号加粗居中，表格内中文用宋体五号，英文用 Times New Roman，字体五号，表格格式采用简明三线表。
+
+全文的表格可以统一编序，也可以每章单独编序 (如表 1-XXX，表 2-1 XXX) ，不管采用哪种方式，表序必须连续。表格允许下页接写，接写时表题省略，表头应重复书写，并在右上方写“续表××”。此外，表格应放在离正文首次出现处的近处，不应过分超前或拖后。
+
+\item 公式
+
+公式应另起一行居中对齐，一行写不完的长公式，最好在等号处转行，如做不到这点，应在数学符号 (如“+”、“-”号) 处转行，且数学符号应写在转行后的行首。
+
+公式的编号用圆括号括起放在公式右边行末，靠右对齐，公式和编号之间不加虚线，公式可按全文统一编序号，也可以每章单独编序 (如第 1 章中第一个公式编号为 1-1，第 2 章中第二公式编号为 2-2) ，公式序号必须连续，不得重复或跳缺。重复引用的公式不得另编新序号。公式中分数的横分线要写清楚，特别是连分数 (即分子和分母也出现分数时) 更要注意分线的长短，并将主要分线和等号对齐。在叙述中也可将分数的分子和分母平列在一行，用斜线分开表述。
+\end{compactenum}
+\subsection{量和单位}
+毕业论文 (设计) 中的量和单位必须采用中华人民共和国家标准 GB 3100～GB 3102-1993，它是以国际单位制 (SI) 为基础的。非物理量的单位，如件、台、人、元等，可用汉字与符号构成组合形式的单位，例如：件/台、元/km。
+\subsection{标点符号、数字}
+标点符号应按《标点符号用法》 (中华人民共和国国家标准GB/T15834-2011) 使用。测量、统计数据一律用阿拉伯数字，如5.25MeV 等。在叙述不是特别大的数目时，一般不宜用阿拉伯数字。
+\subsection{名词、名称}
+科学技术名词术语尽量采用全国科学技术名词审定委员会公布的规范词或国家标准、部标准中规定的名称。尚未统一规定或叫法有争议的名词术语，可采用惯用的名称。使用外文缩写代替某一名词术语时，首次出现时应在括号内注明其含义，如：OECD (Organization for Economic Cooperation and Development) 代替经济合作发展组织。
+
+外国人名一般采用外文原名，可不译成中文，英文人名按姓前名后的原则书写，如：CRAY P.，不可将外国人姓名中的名部分漏写，例如：不能只写 CRAY, 应写成 CRAY的外国人名 (如牛顿、爱因斯坦、达尔文、马克思等) 可按通常标准译法写译名。
+\subsection{参考文献著录格式示例}
+书写格式应符合 GB/T 7714-2015《信息与文献 参考文献著录规则》。
+
+\vspace{2cm}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{print.pdf}
+\end{figure}

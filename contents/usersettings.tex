@@ -1,0 +1,81 @@
+% !Mode:: "TeX:UTF-8"
+% usersettings.tex
+\usepackage{paralist}
+\usepackage{dtklogos}
+\usepackage{xcolor}
+\usepackage{listings}
+% Add Chapter to TOC && Remove Contents from TOC
+\usepackage[chapter, nottoc]{tocbibind}
+% 允许使用子图 subfloat
+\usepackage{subfig}
+% 允许使用图文混排
+\usepackage{wrapfig}
+\usepackage{physics}
+% picinpar 和 picins 都无法成功实现图文混排。
+% \usepackage{picinpar}
+% \usepackage{picins}
+% 使用 ccmap，则英文和数字都正常。如果论文重复率高的话，注释掉 ccmap ，英文和数字被映射为汉字，相当于增加干扰码，降低重复率。
+\usepackage{ccmap}
+
+\usepackage{tikz}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta}
+\usepackage{listofitems} % for \readlist to create arrays
+\tikzstyle{mynode}=[thick,draw=black,circle,minimum size=22]
+% \newtheorem{环境名}[编号延续]{显示名}[编号层次]
+% 在下例中，我们定义了四个环境：定义、定理、引理和推论，它们都在一个section内编号，而引理和推论会延续定理的编号。
+% \newtheorem{definition}{定义}[section]
+% \newtheorem{theorem}{定理}[section]
+% \newtheorem{lemma}[theorem]{引理}
+% \newtheorem{corollary}[theorem]{推论}
+
+% Define colors for code listings
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.98,0.98,0.98} % Very light gray background
+
+% Define a simple listings style with better space utilization
+\lstdefinestyle{simplestyle}{
+    backgroundcolor=\color{backcolour}, % Light background
+    commentstyle=\color{codegreen},     % Style for comments
+    keywordstyle=\color{blue!80}\bfseries, % Style for keywords
+    numberstyle=\tiny\color{codegray},  % Style for line numbers
+    stringstyle=\color{codepurple},    % Style for strings
+    basicstyle=\ttfamily\small,        % Basic font style
+    breakatwhitespace=false,           % Break lines only at whitespace? No
+    breaklines=true,                   % Enable line breaking
+    captionpos=b,                      % Caption position below
+    keepspaces=true,                   % Keep spaces to preserve indentation
+    numbers=left,                      % Line numbers on the left
+    numbersep=5pt,                     % Space between number and code
+    showspaces=false,                  % Don't show spaces visually
+    showstringspaces=false,            % Don't show spaces in strings visually
+    showtabs=false,                    % Don't show tabs visually
+    tabsize=2,                         % Tab width
+    % Space saving options:
+    frame=none,                        % No frame around the code
+    xleftmargin=0em,                   % Left margin
+    xrightmargin=0em,                % Right margin
+    aboveskip=0em,                   % Space above listing
+    belowskip=0em,                   % Space below listing
+    columns=flexible                   % Flexible columns for better space usage
+}
+
+% To apply this style, you can either modify the \lstset command below
+% to include 'style=simplestyle' or use the style explicitly, e.g.,
+% \begin{lstlisting}[style=simplestyle, language=Python]
+% ... code ...
+% \end{lstlisting}
+
+\lstset{language=TeX}
+% \lstset{extendedchars=false}
+\lstset{breaklines}	
+\lstset{numbers=left,numberstyle=\tiny,%commentstyle=\color{red!50!green!50!blue!50},
+frame=shadowbox,rulesepcolor=\color{red!20!green!20!blue!20},escapeinside=``,
+xleftmargin=2em,xrightmargin=2em,aboveskip=1em,backgroundcolor=\color{red!3!green!3!blue!3},
+basicstyle=\small\ttfamily,stringstyle=\color{purple},keywordstyle=\color{blue!80}\bfseries,
+commentstyle=\color{olive}}
+\numberwithin{footnote}{page}
+\renewcommand{\thefootnote}{\arabic{footnote}}
+\renewcommand{\CTeX}{\SHUANG{C}\TeX}

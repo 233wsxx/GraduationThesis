@@ -1,0 +1,66 @@
+% !Mode:: "TeX:UTF-8"
+\chapter{深度学习及其不确定性量化综述}
+
+深度学习通过构建多层非线性变换网络实现对数据特征的层次化抽象，已成为现代人工智能的核心范式。本章系统阐述深度学习的基础理论框架，重点解析神经网络的结构特性与训练机制，深入探讨Transformer模型的自注意力机理，并全面论述不确定性量化的前沿方法与技术挑战。
+
+\section{神经网络基础架构}\label{intro-NN}
+
+人工神经网络受生物神经系统启发构建计算模型，其核心单元由仿生神经元构成信息处理网络。如图\ref{NNstructure}所示，典型网络架构包含输入层、隐藏层与输出层三级结构：输入层接收原始特征向量，隐藏层通过非线性激活函数实现特征变换，输出层生成最终预测结果。单个神经元的信息处理过程可形式化为：
+
+\begin{equation}
+    a_{i,j} = f\left(\sum_{k=1}^{n} w_{i,j,k} x_k + b_{i,j}\right)
+\end{equation}
+
+其中$w_{i,j,k}$表征突触连接权重，$b_{i,j}$为偏置项，$f(\cdot)$为激活函数（如ReLU、Sigmoid等）。
+值得注意的是，训练过程中需设置确定性计算模式（如固定CUDA后端参数）并严格控制随机种子，以确保实验可复现性。常见网络变体包括卷积神经网络（CNN）与循环神经网络（RNN），前者通过局部连接与权值共享处理图像数据，后者借助门控机制建模时序依赖。
+
+\section{Transformer架构解析}
+
+Transformer模型通过自注意力机制突破传统序列建模的局限性，其架构如图\ref{transformer}所示。编码器-解码器结构采用堆叠的注意力模块实现全局依赖建模，位置编码通过正弦函数注入序列顺序信息。核心的多头注意力机制可分解为：
+
+\begin{equation}
+    \text{Attention}(Q,K,V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
+\end{equation}
+
+其中查询矩阵$Q$、键矩阵$K$、值矩阵$V$分别由输入投影得到。如图\ref{fig:multi-head-att}所示，多头注意力通过并行计算提升表征能力：
+
+\begin{equation}
+    \text{MultiHead}(Q,K,V) = \text{Concat}(\text{head}_1,...,\text{head}_h)W^O
+\end{equation}
+
+每个注意力头在$d_k/h$维子空间独立建模特征关联，这种分治策略显著增强了模型对复杂依赖关系的捕捉能力。相较于传统RNN模型，Transformer通过并行计算架构将训练效率提升了一个数量级。
+
+\section{深度学习不确定性量化方法}
+
+模型不确定性可解构为认知不确定性（模型参数不确定性）与随机不确定性（数据固有噪声），其量化方法主要包括：
+
+\subsection{贝叶斯神经网络(BNN)}
+如图\ref{bnn}所示，BNN将权重参数建模为概率分布，通过变分推断逼近后验分布$p(w|D)$。预测阶段执行贝叶斯模型平均：
+
+\begin{equation}
+    p(y^*|x^*,D) = \int p(y^*|x^*,w)p(w|D)dw
+\end{equation}
+
+尽管理论严谨，但MCMC采样方法计算复杂度高达$O(N^3)$，难以应用于大规模网络。
+
+\subsection{蒙特卡洛Dropout}
+如图\ref{mc_dropout}所示，测试阶段保持Dropout激活，通过$T$次随机前向传播估计预测方差：
+
+\begin{equation}
+    \mathbb{V}[y^*] \approx \frac{1}{T}\sum_{t=1}^T f_{\theta_t}(x^*)^2 - \left(\frac{1}{T}\sum_{t=1}^T f_{\theta_t}(x^*)\right)^2
+\end{equation}
+
+该方法计算效率较BNN提升约40%，但校准性能随网络深度增加而下降。
+
+\subsection{深度集成方法}
+如图\ref{boosttrap}所示，独立训练$M$个模型构成集成系统：
+
+\begin{equation}
+    p(y^*|x^*) = \frac{1}{M}\sum_{m=1}^M p(y^*|x^*,\theta_m)
+\end{equation}
+
+实证研究表明，当集成规模$M\geq5$时，模型在域外检测任务中的AUROC指标可提升15%以上。然而其计算成本随模型数量线性增长，需权衡性能与资源消耗。
+
+近年研究提出光谱归一化高斯过程（SNGP）等新型方法，通过残差层正则化与输出层概率化改造，在保持精度的同时显著提升不确定性校准能力。在医疗诊断等安全敏感领域，这类方法将错误检测率降低了32%。
+
+模型量化技术为不确定性估计提供硬件加速支持，8位整数量化可使推理速度提升4倍，而量化感知训练（QAT）通过模拟量化噪声微调网络，将精度损失控制在1%以内。TVM等编译框架通过自动内核优化，在NVIDIA GPU上实现吞吐量8倍提升。
