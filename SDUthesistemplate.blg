@@ -1,0 +1,23 @@
+[0] Config.pm:307> INFO - This is Biber 2.19
+[0] Config.pm:310> INFO - Logfile is 'SDUthesistemplate.blg'
+[38] biber-darwin:340> INFO - === Sat Apr 26, 2025, 16:50:01
+[48] Biber.pm:419> INFO - Reading 'SDUthesistemplate.bcf'
+[118] Biber.pm:979> INFO - Found 21 citekeys in bib section 0
+[126] Biber.pm:4419> INFO - Processing section 0
+[134] Biber.pm:4610> INFO - Looking for bibtex file 'contents/reference.bib' for section 0
+[136] bibtex.pm:1713> INFO - LaTeX decoding ...
+[154] bibtex.pm:1519> INFO - Found BibTeX data source 'contents/reference.bib'
+[863] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'variable = shifted' with 'variable = non-ignorable'
+[863] UCollate.pm:68> INFO - Overriding locale 'en-US' defaults 'normalization = NFD' with 'normalization = prenormalized'
+[863] Biber.pm:4239> INFO - Sorting list 'none/global//global/global' of type 'entry' with template 'none' and locale 'en-US'
+[863] Biber.pm:4245> INFO - No sort tailoring available for locale 'en-US'
+[892] bbl.pm:660> INFO - Writing 'SDUthesistemplate.bbl' with encoding 'UTF-8'
+[1886] bbl.pm:763> INFO - Output to SDUthesistemplate.bbl
+[1887] Biber.pm:131> WARN - Duplicate entry key: 'NIPS2017_9ef2ed4b' in file 'contents/reference.bib', skipping ...
+[1887] Biber.pm:131> WARN - legacy month field 'Jul' in entry 'PhysRevLett.87.071301' is not an integer - this will probably not sort properly.
+[1887] Biber.pm:131> WARN - legacy month field 'Aug' in entry 'PhysRevLett.81.1562' is not an integer - this will probably not sort properly.
+[1887] Biber.pm:131> WARN - legacy month field 'Sep' in entry 'PhysRev.48.512' is not an integer - this will probably not sort properly.
+[1887] Biber.pm:131> WARN - legacy month field 'Dec' in entry 'PhysRev.56.1184' is not an integer - this will probably not sort properly.
+[1887] Biber.pm:131> WARN - legacy month field 'Apr' in entry 'PhysRevLett.126.171801' is not an integer - this will probably not sort properly.
+[1887] Biber.pm:131> WARN - legacy month field 'Aug' in entry 'PhysRevC.80.025501' is not an integer - this will probably not sort properly.
+[1887] Biber.pm:133> INFO - WARNINGS: 7
