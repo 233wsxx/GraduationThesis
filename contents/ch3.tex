@@ -104,8 +104,8 @@ $b_{i,j}$为第$i$个神经元在第$j$层的偏置项，$f(\cdot)$为激活函�
 CNN是一种特殊的前馈神经网络，主要用于处理图像数据。它通过卷积层和池化层提取图像特征，并通过全连接层进行分类。
 卷积层通过卷积操作提取局部特征，池化层通过下采样操作减少特征图的尺寸，从而降低计算复杂度和防止过拟合。
 RNN是一种特殊的前馈神经网络，主要用于处理序列数据。它通过循环结构捕捉序列数据中的时序关系，
-并通过LSTM(long short-term memory，长短时记忆)\cite{hochreiter1997long}
-或GRU(gated recurrrent unit，门控循环单元)\cite{DBLP:journals/corr/ChoMGBSB14}等结构解决长依赖问题。
+并通过LSTM (long short-term memory，长短时记忆) \cite{hochreiter1997long}
+或GRU (gated recurrrent unit，门控循环单元) \cite{DBLP:journals/corr/ChoMGBSB14}等结构解决长依赖问题。
 卷积神经网络和循环神经网络都是深度学习的重要组成部分，不过对于传统的RNN，
 由于其在长序列数据上的训练效率较低，且容易出现梯度消失或梯度爆炸等问题，因此在处理长序列数据时，除了
 LSTM和GRU等变种RNN外，接下来要介绍的Transformer模型也被广泛应用。
@@ -141,9 +141,9 @@ Transformer模型的基本结构包括编码器和解码器两个部分。编码
   \label{attention}
   \text{Attention} = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)
 \end{equation}
-其中，$Q$为查询(Query)矩阵，$K$为键(Key)矩阵，$d_k$为键矩阵的维度。
+其中，$Q$为查询 (Query) 矩阵，$K$为键 (Key) 矩阵，$d_k$为键矩阵的维度。
 注意力权重矩阵的每一行表示当前时刻的输入位置与其他位置之间的相似度，每一列表示其他位置对当前时刻的输入位置的影响程度。
-上面分析的注意力机制被称为“缩放点积注意力(Scaled dot-product attention)”，不过我们从图\ref{transformer}可以看出，
+上面分析的注意力机制被称为“缩放点积注意力 (Scaled dot-product attention) ”，不过我们从图\ref{transformer}可以看出，
 进行应用的是“多头注意力(Multi-head attention)”。这是由多个缩放点积注意力经过投影$h$次然后经过
 $d_k$，$d_k$和$d_v$并行运算最后叠加而成的。这一机制使得模型可以结合多个不同投影子空间的表现，从而获得更高精确度的预测。
 为这两种注意力机制的示意图由图\ref{fig:multi-head-att}给出，其中缩放点积注意力由公式\ref{attention}，而多头注意力用公式表征如下\cite{vaswani2017attention}:
@@ -192,11 +192,11 @@ $d_k$，$d_k$和$d_v$并行运算最后叠加而成的。这一机制使得模�
 从而增强模型在实际应用中的可靠性和可解释性。
 
 \subsection{BNN}
-BNN 的核心思想是将神经网络的权重($\omega$)和偏置视为概率分布，
+BNN 的核心思想是将神经网络的权重 ($\omega$) 和偏置视为概率分布，
 而不是固定的点估计值，如图\ref{bnn}所示。其目标是根据观测数据$D$推断权重的后验分布 $p(w|D)$ 。
 对于新的输入 $x^*$，
 BNN 的预测是通过对所有可能的权重配置进行边缘化(或积分)得到的，
-即进行贝叶斯模型平均(Bayesian model averaging)：\cite{ABDAR2021243}
+即进行贝叶斯模型平均：\cite{ABDAR2021243}
 
 \begin{equation}
     p(y^*|x^*,D) = \int p(y^*|x^*,w)p(w|D)dw
@@ -210,12 +210,12 @@ BNN 的预测是通过对所有可能的权重配置进行边缘化(或积分)�
 \end{figure}
 由于精确计算后验分布通常是不可行的，我们一般
 需要采用一些近似推断方法，
-例如VI(Variational Inference，变分推断)，
-MCMC(Markov Chain Monte Carlo，马尔可夫链蒙特卡洛)，拉普拉斯近似
+例如VI (Variational Inference，变分推断) ，
+MCMC (Markov Chain Monte Carlo，马尔可夫链蒙特卡洛) ，拉普拉斯近似
 等。
 
 对于VI，我们使用一个简单的、可处理的概率分布
-$q(\theta)$(例如，均值场高斯分布)来近似真实的后验分布
+$q(\theta)$ (例如，均值场高斯分布) 来近似真实的后验分布
 $p(w|D)$，通过最小化它们之间的Kullback-Leibler散度\cite{1320776d-9e76-337e-a755-73010b6e4b64}来优化近似分布的参数
 。VI在计算上通常比MCMC更高效，但其结果依赖于近似分布的选择。
 
@@ -297,7 +297,7 @@ Dropout进行正则化的现有网络架构；计算成本相比BNN更低。
 详细解释了其核心的自注意力机制，特别是缩放点积注意力和多头注意力。
 最后，本章深入探讨了深度学习中的不确定性量化问题，
 区分了认知不确定性和随机不确定性，并详细介绍了三种主流的不确定性量化方法：
-贝叶斯神经网络(BNN)、蒙特卡洛Dropout(MC Dropout)和深度集成。
+BNN、MC Dropout和深度集成。
 对每种方法的原理、优缺点和适用场景进行了分析，
 强调了不确定性量化对于提升模型可靠性和可解释性的重要性。
 
