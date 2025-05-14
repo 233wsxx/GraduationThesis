@@ -1,47 +1,48 @@
 % !Mode:: "TeX:UTF-8"
 \begin{cnabstract}
+萨德伯里中微子观测站+是开创先河的萨德伯里中微子观测站的后续项目。
+它位于加拿大萨德伯里地下约2千米处。它的主要物理目标是探测一个
+极其罕见的事件——无中微子双贝塔衰变。
+如果这一现象被观测到，它将为中微子物理和基本粒子理论
+提供深远的启示。为了实现这一目标，该实验使用
+一个装有780吨液体闪烁体的直径约12米的丙烯酸容器
+探测器，该探测器随后将被装载1.3吨的同位素碲-130。
+精确的包括事件位置，方向，时间，能量的事件重建对于区分
+无中微子双贝塔衰变和背景事件的信号至关重要。
+中微子实验中的传统事件重建通常使用数值方法，并且基于
+最大似然估计。尽管这些方法被广泛地使用，但是当我们处理
+复杂的事件，大量的噪声或者大量的数据时，这些方法
+将会面临很大的局限，导致重建精度受限和计算效率低下。
+不过，深度学习的方法凭借其强大的捕捉复杂，非线性
+关系的能力在粒子物理领域尤其是事件重建中
+显现出了其对事件重建性能提升的潜力。
 
-萨德伯里中微子观测站+实验是开创性
-的萨德伯里中微子观测站的后继实验，坐落于加拿大萨德伯里地下约2公里处。
-它的主要科学目标是探测极为罕见的无中微子双贝塔衰变。
-如果观测到这一现象，将对中微子物理和基本粒子理论产生深远的影响。
-为实现这一雄心勃勃的目标，该实验在一个直径12米的丙烯酸容器中装载了
-780吨液体闪烁体，并计划向其中加入约1.3吨的同位素
-碲-130。要从背景事例中分辨出无中微子双贝塔衰变
-的微弱信号，准确的事例重建(包括对事例位置、方向、时间以及能量的精确测定)
-至关重要。
+尽管深度学习方法取得了令人期待的成就，但是
+评估模型的预测的可靠性和鲁棒性仍然是一个重要的
+挑战。特别是需要全面的不确定性量化来确保基于深度学习
+的方法的重建的可信度。对于不确定性的量化，包括数据驱动的
+和模型相关的不确定性，不仅对于控制预测的置信度以防止过拟合
+和欠拟合很有必要，而且对于后续的物理分析也很重要。
 
-在传统的中微子实验中，事例重建通常依赖基于最大似然估计的数值计算方法。
-虽然这些方法应用广泛，但在面对复杂的事例、大量噪声或庞大数据时，
-它们往往受到内在限制，表现出重建精度不足及计算效率较低等问题。近年来，
-深度学习技术在粒子物理研究中崭露头角，凭借其从大规模数据中捕捉
-复杂非线性关系的卓越能力，为提升重建性能提供了重要契机。
+在本论文中，我们提出了一种专为SNO+实验设计全新的深度学习驱动的事件重建方法。
+这一模型采用基于生成预训练Transformer结构的神经网络架构。
+为了训练和验证我们的模型，我们使用了依托实验反应堆分析工具的
+蒙特卡洛模拟数据。此外，我们还引入了一种利用液体闪烁体中自然放射性同位素
+铋-214和钋-214的事件验证新方法。这种方法不仅稳定可靠，还能实现基于
+数据的高精度重建验证。
 
-然而，尽管深度学习方法取得了显著成就，评估模型预测的可靠性和鲁棒性
-仍是一个关键挑战。尤其需要关注全面的不确定性量化，以确保基于深度学习
-的重建算法在科学上具有可信度。对不确定性的定量分析(包括源于数据的随机
-不确定性和源于模型的认知不确定性)不仅能够
-避免预测过度自信或信心不足的问题，也对后续的物理分析至关重要。
+经过系统评估，我们的结果显示，即使训练时间较短
+，所开发的深度学习模型也能在重建精度、计算效率，以及对探测器噪声和
+不确定性表现出令人满意的鲁棒性。更值得注意的是，通过
+蒙特卡洛Dropout技术，我们能够同时对数据驱动与模型驱动的不确定性
+进行估计，从而深入理解事件重建的模型置信度。
 
-在本论文中，我们提出了一种专门针对该实验特点而设计的全新深度学习事例
-位置重建算法。该模型采用了基于生成式预训练Transformer的神经网络架构，因其在处理序列
-数据和注意力机制方面具有强大的能力而备受关注。为训练和验证该深度学习
-模型，我们使用了基于该实验中反应堆分析工具
-软件的蒙特卡洛模拟数据，该数据能较好地反映真实探测器环境和事例分布。
-此外，我们还提出了一种新的基于闪烁体中自然放射性的铋-214-钋-214事例符合信号
-的验证方法。该方法提供了一个由数据驱动的有力验证手段，
-用于直观地评估模型在空间和时间上的重建准确度，从而与传统的基于模拟的
-评估形成互补。
+总体而言，本研究提出并验证了一种融合不确定性估算的新型深度学习重建方法，
+同时为中微子物理实验中的数据分析提供了新的思路。
+这一方法不仅适用于SNO+等实验，
+还可以根据需要，应用于其他中微子或稀有事件探测实验。
 
-通过系统的评价，我们的结果显示，这种基于生成式预训练Transformer的深度学习模型
-在位置重建精度、计算效率以及对探测器噪声与不确定性的鲁棒性方面，均基本达到了
-传统的最大似然估计方法。在接下来的更为重要的是，通过引入蒙特卡洛Dropout技术，能够同时
-量化随机和认知不确定性，从而全面表征重建结果的可信度。
 
-总体而言，本研究不仅提出并验证了一种结合不确定性估计的新型深度学习位置
-重建框架，而且对中微子物理实验的数据分析方法做出了一定贡献。
-所提出的方法具有广泛适用性，后续可以通过修改迁移到其他中微子或稀有事例
-探测实验中。
 
 \cnkeywords{双贝塔衰变；中微子物理；重建；深度学习；不确定性估计；液体闪烁体探测器}
 
@@ -49,13 +50,14 @@
 
 \begin{enabstract}
 
-The Sudbury Neutrino Observatory+ experiment is the successor to the pioneering Sudbury 
+The Sudbury Neutrino Observatory+ experiment is the successor 
+to the pioneering Sudbury 
 Neutrino Observatory. It is located approximately 2km 
-underground in Sudbury, Canada. Its primary scientific goal is 
-to detect the exceptionally rare event, neutrinoless double-beta 
+underground in Sudbury, Canada. Its primary physics goal is 
+to detect a very rare event, neutrinoless double-beta 
 decay. This phenomenon would provide profound 
 implications for neutrino physics and fundamental particle theory 
-if observed. To achieve this ambitious goal, the experiment employs a 
+if observed. To achieve this goal, the experiment employs a 
 detector filled with 780 tonnes of liquid scintillator, which 
 will subsequently be loaded with approximately 1.3 tonnes of 
 the isotope $^{130}\mathrm{Te}$ in its 12-meter diameter acrylic 
@@ -65,13 +67,15 @@ is crucial for distinguishing the subtle signals of neutrinoless double-beta
 decay from background events.
 
 Traditionally, event reconstruction in neutrino experiments 
-relies on numerical methods, often based on maximum likelihood 
-estimation. Although widely employed, these methods face 
-inherent limitations when dealing with complex events, substantial 
+usually implement numerical methods, and often based on 
+maximum likelihood estimation. 
+Although it's widely employed, these methods has a high probability 
+to face limitations when dealing with complex events, substantial 
 noise, or large datasets, leading to constrained reconstruction 
-accuracy and computational inefficiencies. Recently, 
-deep learning techniques have emerged prominently 
-within particle physics research, demonstrating significant 
+accuracy and computational inefficiencies. However, 
+deep learning techniques have emerged prominently especially for
+the event reconstruction task
+in the field of particle physics, which has demonstrated significant 
 potential for enhancing reconstruction performance due to 
 their exceptional capability of capturing intricate, nonlinear 
 relationships from large-scale datasets.
@@ -82,45 +86,43 @@ remains a critical challenge. Specifically, comprehensive
 uncertainty quantification is required to ensure the scientific 
 credibility of deep learning–based position reconstruction algorithms. 
 Quantifying uncertainties, including aleatoric (data-driven) and epistemic (model-related) uncertainties, 
-is essential not only for controling the confidence of predictions to avoid overconfident or underconfident, 
+is essential not only for controling the confidence of predictions to avoid overfitting or underfitting, 
 but also for the subsequent physical analysis.
 
 In this thesis, we present a novel deep learning–based event 
-reconstruction algorithm tailored explicitly to the unique 
+reconstruction algorithm which is speciallized 
+to fit the unique 
 characteristics of the experiment. The proposed model 
-leverages GPT (Generative Pre-trained Transformer) -based neural network architectures, 
-which is well-known for their strong capability in handling 
-sequential and attention-based data processing tasks. To 
-train and validate our deep learning model, we utilized Monte Carlo 
-simulation data based on the reactor analysis tool in the experiment, 
-reflecting realistic detector conditions and event distributions. 
+implements Generative Pre-trained Transformer-based architectures. 
+To train and validate our deep learning model, we have used Monte Carlo 
+simulation data based on the reactor analysis tool in the experiment.
 Moreover, we introduced an innovative validation method based on 
 naturally occurring radioactive 
 $^{214}\mathrm{Bi}$-$^{214}\mathrm{Po}$ coincidence events within 
 the scintillator. This method offers a robust, data-driven 
-validation approach to intuitively evaluate the spatial and 
-temporal reconstruction accuracy of our model, complementing 
-traditional simulation-based evaluations.
+validation approach to evaluate the reconstruction accuracy of 
+our model.
 
 Through systematic assessments, our results 
-demonstrate that the developed Transformer-based deep learning model 
-significantly outperforms traditional maximum likelihood estimation-based methods in 
+demonstrate that the developed deep learning model 
+with little training ofa relatively small dataset 
+can reach almost the same performance traditional maximum likelihood 
+estimation-based methods in 
 terms of reconstruction precision, computational efficiency, 
 and robustness to detector noise and uncertainties. Importantly, 
-the implementation of Monte Carlo Dropout techniques enabled the 
+the implementation of Monte Carlo Dropout techniques has 
+shown the potential to have  
 simultaneous quantification of both aleatoric and epistemic 
 uncertainties, providing comprehensive insight into the 
 confidence levels of reconstruction results.
 
-Overall, this research not only proposes and validates an 
-innovative deep learning-based reconstruction framework with integrated 
-uncertainty estimation but also contributes to 
+Overall, this research proposes and validates an 
+innovative deep learning-based reconstruction framework 
+with integrated uncertainty estimation, and contributes to 
 advancing data analysis methodologies in neutrino physics experiments. 
 The methodologies developed here have broader implications and can 
 be adapted to other neutrino or rare-event detection experiments 
-later after modification, marking an essential step toward 
-leveraging artificial intelligence technologies to advance 
-frontier research in particle physics.
+later after modification.
 
 \enkeywords{Double-beta decay，Neutrino physics，Reconstruction，Deep Learning，Uncertainty estimation，Liquid scintillator detector}
 

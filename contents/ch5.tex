@@ -1,5 +1,5 @@
 % !Mode:: "TeX:UTF-8"
-\chapter{SNO+实验的位置重建以及UQ}
+\chapter{SNO+实验的位置重建以及不确定性量化}
 
 探测器中收集到的原始数据无法直接拿来做物理分析，这些数据需要经过
 一系列的计算，才能拿到后续所需要的物理量。例如经过计算拿到了衰变顶点
@@ -14,7 +14,7 @@
 在SNO+探测器中，传统的重建方法主要是基于MLE (Maximum likelihood estimation，
 最大似然估计)的。一般我们通过PMT的时间和位置信息来进行重建。可能后期还会
 加入其他的信息，例如PMT的积分电荷等。SNO+实验中应用的MLE方法是基于一个假设，
-即PMT接收到了一个内部电子的光子信号。\cite{anderson2024}虽然这个假设可能不是
+即PMT接收到了一个内部电子的光子信号\cite{anderson2024}。虽然这个假设可能不是
 一直成立，不过我们还会用其他的方法来分辨粒子类型。
 
 更严谨地说，如果我们想确定一个事件的位置，我们会把一个基于时间残差的似然
@@ -36,7 +36,7 @@ $T_{res,i}$的分布一般服从正态分布，其均值为0，方差为$\sigma_
 
 完整的PDF (Probability density function，概率密度函数) 由于考虑了
 反射，PMT本身的噪声以及各种其他的效应，更加的复杂。结果为一个具有长尾巴
-并且有多个峰的分布。这个结果是从模拟和刻度中得到的。\cite{anderson2024}
+并且有多个峰的分布。这个结果是从模拟和刻度中得到的\cite{anderson2024}。
 
 $T_{fit}$ 和 $x_{fit}$是我们需要拟合的参数。我们可以通过最大化似然函数来得到它们的值。
 \begin{equation}
@@ -56,15 +56,15 @@ Powell算法是一种无导数的优化算法，它通过迭代地调整参数�
 例如SNO+目前重建所用的PDF。当然，不止传统算法，
 神经网络在训练时的梯度下降算法的思想与Powell算法比较相似。
 
-目前SNO+实验所使用的重建方法涉及各种算法的先后结合。\cite{Allega_2024}主要算法如\ref{MLE}
+目前SNO+实验所使用的重建方法涉及各种算法的先后结合\cite{Allega_2024}。主要算法如\ref{MLE}
 一样最小化负对数似然函数来确定事件位置。然而，尽管最大化似然函数是该过程中的第一步，
 由于需要拟合的参数必须初始化为某个值，有几个算法是事先运行的。
-这个被初始化的值通常称为种子。与神经网络反向传播的情况一样，初始值对是否能准确重建有很大的影响。
+这个被初始化的值通常称为种子\footnote{我们使用的初始化算法基于只需要4个PMT击中就可以解析地计算事件的位置和时间的原理。
+根据\ref{eq:residual}，$T_{res,i}$设置为零时有四个参数需要拟合，所以只需要四次命中PMT的信息。
+当然，在实际应用中，计算位置和时间的准确性取决于选择哪四个PMT，光子从事件到击中PMT的路径，
+以及与击中时间相关的噪声。随后重复4000次并取平均}。与神经网络反向传播的情况一样，初始值对是否能准确重建有很大的影响。
 
-% 我们使用的初始化算法基于只需要4个PMT击中就可以解析地计算事件的位置和时间的原理。
-% 根据\ref{eq:residual}，$T_{res,i}$设置为零时有四个参数需要拟合，所以只需要四次命中PMT的信息。
-% 当然，在实际应用中，计算位置和时间的准确性取决于选择哪四个PMT，光子从事件到击中PMT的路径，
-% 以及与击中时间相关的噪声。
+
 
 \section{深度学习在SNO+探测器中的位置重建方法}\label{sec:dl_reconstruction}
 
@@ -85,7 +85,7 @@ Powell算法是一种无导数的优化算法，它通过迭代地调整参数�
 
 接下来我们介绍深度学习在SNO+探测器中的位置重建方法。前面\ref{intro-NN}节中介绍了神经网络的基础架构，
 以及CNN和RNN，这两种神经网络在粒子物理实验的重建工作中都有使用。
-我们使用的是在\ref{transformer}节中介绍的\textbf{Transformer}模型的部分架构。
+我们使用的是在\ref{transformer}节中介绍的Transformer模型的部分架构。
 得益于Transformer模型的自注意力机制，
 我们可以在输入数据中捕捉到长距离的依赖关系，从而更好地建模复杂的事件特征。
 
@@ -129,7 +129,7 @@ Powell算法是一种无导数的优化算法，它通过迭代地调整参数�
 
 \subsection{模型训练}
 
-模型训练采用流式处理和分块方法处理大型数据集。主要步骤如下：
+模型训练采用流式处理和分块方法处理大型数据集。主要流程如下：
 
 \begin{enumerate}
     \item \textbf{初始化}: 配置训练参数、日志、计算设备 (CPU/GPU) ，加载PMT位置信息，并构建特征嵌入层和GPT回归器模型。定义加权均方误差损失函数、Adam优化器和余弦退火学习率调度器。
@@ -171,25 +171,26 @@ Powell算法是一种无导数的优化算法，它通过迭代地调整参数�
 深度学习模型的重建结果基本达到了传统的重建方法的精度，
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.7\textwidth]{figures/distance_distribution_comp.png}
-    \caption{深度学习位置重建结果}
+    \includegraphics[width=0.7\textwidth]{figures/distance_distribution_comp.pdf}
+    \caption{深度学习和传统方法位置重建结果}
     \label{fig:position_reconstruction}
 \end{figure}
-同时从图\ref{fig:energy_resolution}和图\ref{fig:hit_resolution}中，我们可以看到，在不同能量范围内，深度学习模型的重建结果也比较稳定。
+同时从图\ref{fig:energy_resolution}和图\ref{fig:_resolution}中，
+我们可以看到，在不同能量范围和探测器内，深度学习模型的重建结果也基本与传统方法持平。
+在探测器边缘位置深度学习方法的重建结果略优于传统方法。
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{figures/energy_vs_dist_avg_comp.pdf}
-    \caption{深度学习位置重建精度随能量变化}
+    \caption{深度学习和传统方法位置重建精度随能量变化}
     \label{fig:energy_resolution}
 \end{figure}
 
-\begin{figure}[htbp]
+\begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/nhits_vs_dist_avg_comp.pdf}
-    \caption{深度学习位置重建精度随PMT命中数变化}
-    \label{fig:hit_resolution}
+    \includegraphics[width=0.8\textwidth]{figures/r_vs_dist_profile.pdf}
+    \caption{深度学习和传统方法位置重建精度随位置变化}
+    \label{fig:_resolution}
 \end{figure}
-
 
 而传统的重建方法在低能量范围内的重建结果较差，在能量较高时，重建结果较好。
 这说明深度学习模型在不同能量范围内的重建结果都比较稳定。 
@@ -204,7 +205,7 @@ Powell算法是一种无导数的优化算法，它通过迭代地调整参数�
 \subsection{粒子物理实验中不确定性的估计}
 
 在正式开始量化深度学习模型的不确定性之前，我们首先要明确粒子物理实验领域和深度学习
-领域UQ的类型以及两者的区别和联系。\cite{ParticleDataGroup:2024cfk}
+领域UQ (Uncertainty Quantification，不确定性量化) 的类型以及两者的区别和联系\cite{ParticleDataGroup:2024cfk}。
 
 
 在\ref{uncertainties}节中，我们了解到，深度学习领域中，
@@ -307,6 +308,8 @@ $\vec{x}_{true}$ 的距离误差 $||\hat{\vec{x}} - \vec{x}_{true}||$
     \label{fig:uq_vs_radius}
 \end{figure}
 
+
+
 这些量化的不确定性估计对于后续的物理分析至关重要。
 例如，可以将事件按照其预测不确定性进行加权，
 或者在进行信号和背景区分时，将具有高不确定性的事件排除或单独处理。
@@ -321,5 +324,5 @@ $\vec{x}_{true}$ 的距离误差 $||\hat{\vec{x}} - \vec{x}_{true}||$
 例如，对于预测标准差为 $\sigma$ 的事件集合，
 其预测位置的均方根误差 (RMSE) 应接近 $\sigma$。
 需要通过绘制校准曲线 (比较不同预测不确定性分箱内的平均RMSE) 
-来评估校准程度，并对可能存在的过度自信或自信不足的区域进行调整。
+来评估校准程度，并对可能存在的过拟合或欠拟合的区域进行调整。
 
