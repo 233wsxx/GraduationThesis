@@ -291,19 +291,19 @@ $\vec{x}_{true}$ 的距离误差 $||\hat{\vec{x}} - \vec{x}_{true}||$
 % \end{figure}
 
 如图\ref{fig:uq_vs_energy}和图\ref{fig:uq_vs_radius}所示，
-我们观察到预测的总不确定性通常在低能量和靠近探测器边缘的区域较高。
+我们观察到预测的总不确定性通常在低能量和靠近探测器边缘以及探测器外部的区域较高。
 这符合预期，因为这些区域的可用信息较少或几何效应更复杂，
 导致重建更具挑战性。
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/energy_vs_split_diff_avg.pdf}
+    \includegraphics[width=0.8\textwidth]{figures/mean_dl_3d_std_vs_energy.pdf}
     \caption{取样后多次前向传播后的$\Delta R$随真实能量的变化趋势示例}
     \label{fig:uq_vs_energy}
 \end{figure}
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.8\textwidth]{figures/posr_vs_split_diff_avg.pdf}
+    \includegraphics[width=0.8\textwidth]{figures/mean_dl_3d_std_vs_trueR.pdf}
     \caption{取样后多次前向传播后的$\Delta R$随真实径向位置的变化趋势示例}
     \label{fig:uq_vs_radius}
 \end{figure}
